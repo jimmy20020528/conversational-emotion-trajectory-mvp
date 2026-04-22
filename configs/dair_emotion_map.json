@@ -1,0 +1,8 @@
+{
+  "sadness": ["sadness"],
+  "joy": ["joy"],
+  "love": ["joy"],
+  "anger": ["anger"],
+  "fear": ["fear"],
+  "surprise": ["surprise"]
+}

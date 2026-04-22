@@ -8,7 +8,7 @@ venv/
 
 outputs/
 artifacts/
-
+data/external/
 *.pt
 *.bin
 

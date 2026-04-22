@@ -1,0 +1,23 @@
+{
+  "_comment": "Extras are concatenated to the GoEmotions/simplified train split. Relative paths are resolved from the process CWD (run training from the project root).",
+  "extras": [
+    {
+      "csv": "data/external/dair_emotion.csv",
+      "text_col": "text",
+      "label_col": "label",
+      "label_map": "configs/dair_emotion_map.json"
+    },
+    {
+      "csv": "data/external/daily_dialog.csv",
+      "text_col": "text",
+      "label_col": "label",
+      "label_map": "configs/daily_dialog_map.json"
+    },
+    {
+      "csv": "data/external/tweet_eval_emotion.csv",
+      "text_col": "text",
+      "label_col": "label",
+      "label_map": "configs/tweet_eval_emotion_map.json"
+    }
+  ]
+}

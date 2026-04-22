@@ -9,3 +9,13 @@ numpy>=1.24.0
 tqdm>=4.66.0
 pandas>=2.0.0
 streamlit>=1.28.0
+# Needed by DeBERTa-v3 tokenizer (SentencePiece) and tokenizer-fallback
+sentencepiece>=0.2.0
+tiktoken>=0.6.0
+# Module 2: emotional trajectory tracker + state graph visualisation
+matplotlib>=3.7.0
+networkx>=3.1
+# Module 3: evaluation — optional heavy deps (lightweight fallbacks are built in)
+#   pip install bert-score           # real contextual BERTScore (~100 MB model)
+#   transformers already pulls BART — the zero-shot-classification pipeline
+#   downloads facebook/bart-large-mnli (~1.5 GB) on first call.

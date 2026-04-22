@@ -1,0 +1,9 @@
+{
+  "no_emotion": [],
+  "anger": ["anger"],
+  "disgust": ["disgust"],
+  "fear": ["fear"],
+  "happiness": ["joy"],
+  "sadness": ["sadness"],
+  "surprise": ["surprise"]
+}

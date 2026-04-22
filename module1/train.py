@@ -92,6 +92,15 @@ def main() -> None:
         default=None,
         help="JSON file: raw label string -> list of canonical emotions, e.g. configs/kaggle_label_map.example.json",
     )
+    parser.add_argument(
+        "--data_mix",
+        default=None,
+        help=(
+            "JSON file describing multiple CSVs to merge into GoEmotions training. "
+            "Shape: {\"extras\": [{\"csv\": ..., \"text_col\": ..., \"label_col\": ..., \"label_map\": ...}, ...]}. "
+            "When provided, --kaggle_csv is ignored."
+        ),
+    )
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -99,19 +108,37 @@ def main() -> None:
 
     tokenizer = get_tokenizer(args.model_name)
     ds = prepare_tokenized(tokenizer, max_length=args.max_length)
-    if args.kaggle_csv:
+
+    extras_spec: list[dict] = []
+    if args.data_mix:
+        mix = json.loads(Path(args.data_mix).read_text(encoding="utf-8"))
+        extras_spec = list(mix.get("extras", []))
+    elif args.kaggle_csv:
         if not args.csv_label_map:
             raise ValueError("--csv_label_map is required when using --kaggle_csv")
-        lmap = load_label_map(Path(args.csv_label_map))
+        extras_spec = [{
+            "csv": args.kaggle_csv,
+            "text_col": args.csv_text_col,
+            "label_col": args.csv_label_col,
+            "label_map": args.csv_label_map,
+        }]
+
+    for spec in extras_spec:
+        csv_path = Path(spec["csv"])
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV not found: {csv_path}")
+        lmap = load_label_map(Path(spec["label_map"]))
         extra = tokenized_from_labeled_csv(
             tokenizer,
-            Path(args.kaggle_csv),
-            text_col=args.csv_text_col,
-            label_col=args.csv_label_col,
+            csv_path,
+            text_col=spec.get("text_col", "text"),
+            label_col=spec.get("label_col", "label"),
             label_map=lmap,
             max_length=args.max_length,
         )
+        print(f"  merged {csv_path.name}: +{len(extra)} rows")
         ds["train"] = merge_train_with_csv(ds["train"], extra)
+
     collator = MultiLabelCollator(tokenizer)
 
     id2label = {str(i): lab for i, lab in enumerate(EMOTION_LABELS)}
@@ -127,11 +154,14 @@ def main() -> None:
 
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    dataset_desc = "go_emotions/simplified"
+    if extras_spec:
+        extras_names = ", ".join(Path(s["csv"]).name for s in extras_spec)
+        dataset_desc = f"go_emotions/simplified + {extras_names}"
     meta = {
         "model_name": args.model_name,
         "emotion_labels": list(EMOTION_LABELS),
-        "dataset": "go_emotions/simplified"
-        + (f" + csv:{args.kaggle_csv}" if args.kaggle_csv else ""),
+        "dataset": dataset_desc,
         "max_length": args.max_length,
     }
     (out / "module1_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
