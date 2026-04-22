@@ -189,6 +189,9 @@ def main() -> None:
     if show_graph and signals and len(turns) >= 2:
         st.subheader("Emotion state graph")
         try:
+            import io
+            import matplotlib
+            matplotlib.use("Agg")  # headless backend — no tkinter/figure-manager side effects
             import matplotlib.pyplot as plt
             import networkx as nx
             from module2.visualise import build_emotion_state_graph
@@ -200,17 +203,14 @@ def main() -> None:
                 pos = nx.spring_layout(G, seed=42, k=2.0)
                 node_sizes = [G.nodes[n].get("mean_intensity", 0.5) * 1800 + 400 for n in G.nodes]
                 node_colors = [CLUSTER_COLORS.get(n, "#888") for n in G.nodes]
-                # Capture return values in `_` so they never leak into Streamlit's
-                # rendered output (this was the source of a stray "0" / dict dump
-                # appearing below the figure in some Streamlit versions).
-                _ = nx.draw_networkx_nodes(
+                nx.draw_networkx_nodes(
                     G, pos, ax=ax, node_size=node_sizes,
                     node_color=node_colors, alpha=0.85,
                 )
-                _ = nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
+                nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
                 weights = [d.get("weight", 0.1) for _, _, d in G.edges(data=True)]
                 widths = [max(1.0, w * 3) for w in weights]
-                _ = nx.draw_networkx_edges(
+                nx.draw_networkx_edges(
                     G, pos, ax=ax, width=widths, arrows=True, arrowsize=14,
                     alpha=0.75, connectionstyle="arc3,rad=0.2",
                     min_source_margin=15, min_target_margin=15,
@@ -219,12 +219,17 @@ def main() -> None:
                     (u, v): f"{d['weight']:.2f}"
                     for u, v, d in G.edges(data=True) if d.get("weight", 0) > 0.1
                 }
-                _ = nx.draw_networkx_edge_labels(
+                nx.draw_networkx_edge_labels(
                     G, pos, edge_labels=edge_labels, ax=ax, font_size=7,
                 )
                 ax.set_axis_off()
-                st.pyplot(fig, clear_figure=True)
+                # Serialize to PNG bytes and render via st.image — skips
+                # st.pyplot entirely, which was leaking a stray "0" under
+                # the figure on Streamlit 1.50.x.
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
                 plt.close(fig)
+                st.image(buf.getvalue(), use_column_width=True)
         except ImportError:
             st.caption("Install `matplotlib` + `networkx` to see the emotion state graph.")
 
