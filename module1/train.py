@@ -195,15 +195,20 @@ def main() -> None:
 
     training_args = TrainingArguments(**ta)
 
-    trainer = MultiLabelTrainer(
+    # transformers >=5.0 dropped `tokenizer=`; use `processing_class=` instead.
+    # Keep backward-compat by trying the new kwarg first and falling back.
+    trainer_kwargs = dict(
         model=model,
         args=training_args,
         train_dataset=ds["train"],
         eval_dataset=ds["validation"],
-        tokenizer=tokenizer,
         data_collator=collator,
         compute_metrics=_compute_metrics,
     )
+    try:
+        trainer = MultiLabelTrainer(processing_class=tokenizer, **trainer_kwargs)
+    except TypeError:
+        trainer = MultiLabelTrainer(tokenizer=tokenizer, **trainer_kwargs)
 
     trainer.train()
     export_dir = out / "module1_model"
