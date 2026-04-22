@@ -50,7 +50,7 @@ def main() -> None:
     with st.sidebar:
         model_dir = st.text_input(
             "Module 1 model folder",
-            value=str(ROOT / "outputs/module1_goemotions/module1_model"),
+            value=str(ROOT / "outputs/module1_multidomain/module1_model"),
         )
         max_length = st.slider("Max tokens", 32, 256, 128)
         show_graph = st.checkbox("Show emotion state graph", value=True)
@@ -111,7 +111,30 @@ def main() -> None:
             if signals:
                 st.markdown(f"**Dominant state:** `{signals.dominant_state}`")
                 st.markdown("**Emotion arc:** " + " → ".join(signals.emotion_sequence))
-            st.write(traj["summary"])
+                # Summary derived from the rich tracker — consistent with the metric cards above.
+                # (The legacy compute_trajectory summary was kept earlier but used a different
+                # negative-mass heuristic that can disagree with the valence/arousal-based
+                # escalation_score shown in the metric; one source of truth is clearer.)
+                esc = signals.escalation_score
+                esc_desc = (
+                    "rising negative affect"
+                    if esc > 0.08
+                    else "de-escalating / easing"
+                    if esc < -0.08
+                    else "stable"
+                )
+                mom = signals.emotional_momentum
+                mom_desc = (
+                    "improving"
+                    if mom > 0.08
+                    else "worsening"
+                    if mom < -0.08
+                    else "steady"
+                )
+                st.write(
+                    f"Trajectory: **{esc_desc}**, valence **{mom_desc}**. "
+                    f"Latest dominant emotion: **{signals.dominant_state}**."
+                )
             st.caption(
                 "Dominant label = argmax over 7 probabilities. The classifier can misfire on short or "
                 "out-of-domain sentences; check raw scores below."
@@ -127,14 +150,19 @@ def main() -> None:
         bar_df = pd.DataFrame([latest]).T.rename(columns={0: "p"})
         st.bar_chart(bar_df, height=220)
 
+        # Use explicit "T1", "T2"... string labels so Streamlit treats the
+        # x-axis as ordinal categories. Integer indices sometimes get auto-
+        # detected as quantitative, producing weird tick ranges (e.g. 0-135
+        # on 5 turns).
+        turn_labels = [f"T{i + 1}" for i in range(len(turns))]
         rows = []
         for i, t in enumerate(turns):
-            row = {"turn": i}
+            row = {"turn": turn_labels[i]}
             row.update({k: t["scores"][k] for k in EMOTION_LABELS})
             rows.append(row)
         df = pd.DataFrame(rows).set_index("turn")
         st.subheader("Score curves")
-        st.line_chart(df)
+        st.line_chart(df, y_label="probability", x_label="turn")
 
         if signals and len(turns) >= 2:
             st.subheader("Valence & arousal")
@@ -142,9 +170,11 @@ def main() -> None:
                 {
                     "valence": signals.valence_series,
                     "arousal": signals.arousal_series,
-                }
+                },
+                index=turn_labels,
             )
-            st.line_chart(va_df)
+            va_df.index.name = "turn"
+            st.line_chart(va_df, y_label="score", x_label="turn")
 
     if signals and len(turns) >= 2 and signals.transition_matrix:
         st.subheader("Transition matrix")
@@ -170,14 +200,17 @@ def main() -> None:
                 pos = nx.spring_layout(G, seed=42, k=2.0)
                 node_sizes = [G.nodes[n].get("mean_intensity", 0.5) * 1800 + 400 for n in G.nodes]
                 node_colors = [CLUSTER_COLORS.get(n, "#888") for n in G.nodes]
-                nx.draw_networkx_nodes(
+                # Capture return values in `_` so they never leak into Streamlit's
+                # rendered output (this was the source of a stray "0" / dict dump
+                # appearing below the figure in some Streamlit versions).
+                _ = nx.draw_networkx_nodes(
                     G, pos, ax=ax, node_size=node_sizes,
                     node_color=node_colors, alpha=0.85,
                 )
-                nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
+                _ = nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_weight="bold")
                 weights = [d.get("weight", 0.1) for _, _, d in G.edges(data=True)]
                 widths = [max(1.0, w * 3) for w in weights]
-                nx.draw_networkx_edges(
+                _ = nx.draw_networkx_edges(
                     G, pos, ax=ax, width=widths, arrows=True, arrowsize=14,
                     alpha=0.75, connectionstyle="arc3,rad=0.2",
                     min_source_margin=15, min_target_margin=15,
@@ -186,11 +219,12 @@ def main() -> None:
                     (u, v): f"{d['weight']:.2f}"
                     for u, v, d in G.edges(data=True) if d.get("weight", 0) > 0.1
                 }
-                nx.draw_networkx_edge_labels(
+                _ = nx.draw_networkx_edge_labels(
                     G, pos, edge_labels=edge_labels, ax=ax, font_size=7,
                 )
                 ax.set_axis_off()
                 st.pyplot(fig, clear_figure=True)
+                plt.close(fig)
         except ImportError:
             st.caption("Install `matplotlib` + `networkx` to see the emotion state graph.")
 
