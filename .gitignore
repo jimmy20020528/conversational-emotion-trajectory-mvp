@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.venv*/
+outputs/
+artifacts/
+*.pt
+*.bin
+.DS_Store
+.claude/

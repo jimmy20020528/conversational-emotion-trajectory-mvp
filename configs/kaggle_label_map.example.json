@@ -1,0 +1,16 @@
+{
+  "joy": ["joy"],
+  "happy": ["joy"],
+  "sadness": ["sadness"],
+  "sad": ["sadness"],
+  "anger": ["anger"],
+  "angry": ["anger"],
+  "fear": ["fear"],
+  "scared": ["fear"],
+  "disgust": ["disgust"],
+  "surprise": ["surprise"],
+  "surprised": ["surprise"],
+  "contempt": ["contempt"],
+  "love": ["joy"],
+  "neutral": []
+}

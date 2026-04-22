@@ -1,0 +1,18 @@
+Full demo (Module 1 + 2 + 3 + Streamlit)
+========================================
+
+1) From the project root (folder that contains app.py):
+
+   source .venv/bin/activate   # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+
+2) Start the UI:
+
+   streamlit run app.py
+
+3) Optional — real LLM replies (Module 3):
+
+   export OPENAI_API_KEY="sk-..."   # macOS/Linux
+   set OPENAI_API_KEY=sk-...        # Windows cmd
+
+   Without this key, Module 3 uses a built-in template reply.

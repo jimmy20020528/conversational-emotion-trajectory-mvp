@@ -1,0 +1,50 @@
+Module 1 → Module 2 handoff
+===========================
+
+Output format (JSONL, one utterance per line)
+---------------------------------------------
+Required input columns for infer: dialog_id, turn_id, text. Optional: speaker.
+
+Each output line includes:
+  scores, intensity: seven floats keyed by joy, sadness, anger, fear, disgust, surprise, contempt (same order as module1.labels.EMOTION_LABELS).
+  active_labels: labels with score >= threshold (default 0.5).
+  logits: length-7 raw logits (optional, for calibration).
+  module1_version: schema version string.
+
+Default model
+-------------
+  Encoder: RoBERTa `roberta-base` (override with `--model_name`, e.g. `microsoft/deberta-v3-small`).
+
+Train (downloads GoEmotions / simplified on first run)
+----------------------------------------------------
+  cd "<project root>"
+  python3 -m venv .venv
+  .venv/bin/pip install -r requirements.txt
+  .venv/bin/python -m module1.train --model_name roberta-base --output_dir outputs/module1_goemotions
+
+Optional: merge a Kaggle CSV into training (more data / different style)
+-------------------------------------------------------------------------
+  1) Download a dataset from Kaggle (CSV with text + one label column).
+  2) Copy `configs/kaggle_label_map.example.json`, edit keys to match YOUR CSV’s label strings
+     and values to lists of canonical names: joy, sadness, anger, fear, disgust, surprise, contempt.
+  3) Run:
+     .venv/bin/python -m module1.train --output_dir outputs/module1_mixed \
+       --kaggle_csv data/your_kaggle_file.csv --csv_text_col text --csv_label_col label \
+       --csv_label_map configs/my_kaggle_map.json
+  GoEmotions train is still used; Kaggle rows are appended to the training split.
+
+Smoke test (few optimizer steps)
+--------------------------------
+  .venv/bin/python -m module1.train --output_dir outputs/smoke --max_steps 4 --per_device_train_batch_size 4
+
+Inference for Module 2
+----------------------
+  .venv/bin/python -m module1.infer \
+    --model_dir outputs/module1_goemotions/module1_model \
+    --input_jsonl data/sample_conversations.jsonl \
+    --output_jsonl artifacts/turn_emotions.jsonl
+
+Notes
+-----
+  Training maps 28 GoEmotions labels → 7 canonical labels via go_emotions_mapping.py.
+  Per-emotion "intensity" in exports equals the sigmoid probability (same as scores).
