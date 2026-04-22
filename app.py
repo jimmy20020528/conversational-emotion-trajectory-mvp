@@ -26,6 +26,26 @@ from module3 import (
 ROOT = Path(__file__).resolve().parent
 RATER_CSV = ROOT / "artifacts" / "human_rater_sheet.csv"
 
+# Threshold below which Module 1's top-1 prediction is treated as
+# "the classifier isn't really confident about any emotion". Multi-label
+# sigmoid outputs can all stay under 0.5 when a sentence is out-of-domain
+# or ambiguous (e.g. "she might not like me" → top-1 = contempt 0.10).
+# We surface this to the viewer rather than hiding it behind an argmax.
+LOW_CONFIDENCE_THRESHOLD = 0.30
+
+
+def _top_score(scores: dict[str, float]) -> float:
+    return max(scores.values()) if scores else 0.0
+
+
+def _confidence_label(scores: dict[str, float]) -> str:
+    """Short human-readable tag describing the classifier's confidence."""
+    top = _top_score(scores)
+    dominant = max(scores, key=scores.get) if scores else "?"
+    if top < LOW_CONFIDENCE_THRESHOLD:
+        return f"⚠️ low confidence (top: {dominant} {top:.2f})"
+    return f"→ {dominant} ({top:.2f})"
+
 
 def _compute_rich_signals(turns: list[dict]):
     """Run the full EmotionalTrajectoryTracker over all turns so far."""
@@ -94,6 +114,7 @@ def main() -> None:
         for t in turns:
             with st.chat_message("user"):
                 st.write(t["text"])
+                st.caption(_confidence_label(t["scores"]))
 
     with col_b:
         st.subheader("Trajectory (Module 2)")
@@ -146,7 +167,16 @@ def main() -> None:
         latest = turns[-1]["scores"]
         ranked = sorted(latest.items(), key=lambda kv: -kv[1])
         top3 = ", ".join(f"**{k}** {v:.2f}" for k, v in ranked[:3])
-        st.markdown(f"**Latest turn — top-3 scores:** {top3}")
+        latest_top = _top_score(latest)
+        header = "**Latest turn — top-3 scores:**"
+        if latest_top < LOW_CONFIDENCE_THRESHOLD:
+            st.warning(
+                f"⚠️ **Low classifier confidence** — top-1 score is only **{latest_top:.2f}** "
+                f"(< {LOW_CONFIDENCE_THRESHOLD:.2f}). "
+                "This turn's dominant label is unreliable; trajectory direction may still be meaningful "
+                "but treat the exact emotion with caution."
+            )
+        st.markdown(f"{header} {top3}")
         bar_df = pd.DataFrame([latest]).T.rename(columns={0: "p"})
         st.bar_chart(bar_df, height=220)
 
