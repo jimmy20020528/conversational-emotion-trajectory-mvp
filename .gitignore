@@ -2,9 +2,15 @@ __pycache__/
 *.py[cod]
 .venv/
 .venv*/
+venv/
+*.pyc
+.ipynb_checkpoints/
+
 outputs/
 artifacts/
+
 *.pt
 *.bin
+
 .DS_Store
 .claude/
